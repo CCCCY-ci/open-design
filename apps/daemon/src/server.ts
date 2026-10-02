@@ -12705,22 +12705,21 @@ export async function startServer({
       // and separately track the TOTAL byte count; the finalizer stitches the
       // head to the tail-biased run.events at their exact stream offset, so no
       // artifact is lost and none is double-counted regardless of where in the
-      // stream it appears.
-      const plainArtifactChunk =
-        event === 'stdout' && data && typeof data.chunk === 'string'
-          ? data.chunk
-          : def.streamFormat === 'antigravity-stream-json' &&
-            event === 'agent' &&
-            data &&
-            data.type === 'text_delta' &&
-            typeof data.delta === 'string'
-            ? data.delta
-            : null;
-      if (plainArtifactChunk !== null) {
-        run.plainStdoutTotalBytes = (run.plainStdoutTotalBytes ?? 0) + plainArtifactChunk.length;
+      // Antigravity streams deliver user-facing text as `agent` text_delta events
+      // rather than raw stdout, so accumulate them for artifact extraction.
+      const antigravityArtifactChunk =
+        def.streamFormat === 'antigravity-stream-json' &&
+        event === 'agent' &&
+        data &&
+        data.type === 'text_delta' &&
+        typeof data.delta === 'string'
+          ? data.delta
+          : null;
+      if (antigravityArtifactChunk !== null) {
+        run.plainStdoutTotalBytes = (run.plainStdoutTotalBytes ?? 0) + antigravityArtifactChunk.length;
         if ((run.plainArtifactStdout?.length ?? 0) < PLAIN_ARTIFACT_STDOUT_CAP) {
           run.plainArtifactStdout =
-            ((run.plainArtifactStdout ?? '') + plainArtifactChunk).slice(0, PLAIN_ARTIFACT_STDOUT_CAP);
+            ((run.plainArtifactStdout ?? '') + antigravityArtifactChunk).slice(0, PLAIN_ARTIFACT_STDOUT_CAP);
         }
       }
       if (event === 'stderr' && data && typeof data.chunk === 'string' && data.chunk) {
