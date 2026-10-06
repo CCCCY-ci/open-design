@@ -16482,7 +16482,7 @@ export async function startServer({
         typeof acpSession?.completedSuccessfully === 'function' &&
         acpSession.completedSuccessfully();
       const runArtifactSideEffects = runSideEffectsForRun(run);
-      let status = classifyChatRunCloseStatus({
+      const status = classifyChatRunCloseStatus({
         cancelRequested: !!run.cancelRequested,
         code,
         signal,
@@ -16493,30 +16493,6 @@ export async function startServer({
           runArtifactSideEffects.artifactWriteSeen ||
           runArtifactSideEffects.liveArtifactSeen,
       });
-      if (status === 'succeeded') {
-        const linkedMediaTask = typeof mediaTaskStore !== 'undefined' && mediaTaskStore?.mediaTasks
-          ? Array.from(mediaTaskStore.mediaTasks.values()).find((t) => t.runId === run.id)
-          : null;
-        if (linkedMediaTask && linkedMediaTask.status === 'failed') {
-          status = 'failed';
-          send(
-            'error',
-            createSseErrorPayload(
-              'MEDIA_DISPATCH_FAILED',
-              linkedMediaTask.error?.message ?? 'Media generation failed',
-              { retryable: true },
-            ),
-          );
-        } else if (agentStdoutTail.includes('MEDIA_DISPATCH_FAILED')) {
-          status = 'failed';
-          send(
-            'error',
-            createSseErrorPayload('MEDIA_DISPATCH_FAILED', 'Media generation failed', {
-              retryable: true,
-            }),
-          );
-        }
-      }
       // Authentication guards above have now ruled out Antigravity's OAuth
       // prompt. Publish any remaining guarded plaintext before a close error
       // so both the emit-time admission ledger and durable-log reconciliation
